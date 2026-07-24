@@ -1,0 +1,416 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+  @apply bg-surface text-slate-900;
+}
+
+* {
+  letter-spacing: 0;
+}
+
+button:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  @apply outline-none ring-2 ring-accent ring-opacity-50;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.45);
+  border-radius: 9999px;
+}
+
+.lr-sheet {
+  width: 1122px;
+  height: 793px;
+  margin: 0 auto;
+  border: 2px solid #111827;
+  background: #fff;
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.12;
+  transform-origin: top left;
+}
+
+.lr-header {
+  position: relative;
+  display: grid;
+  grid-template-columns: 110px 1fr 220px;
+  min-height: 118px;
+  border-bottom: 2px solid #111827;
+}
+
+.lr-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  margin: 14px auto;
+  border: 3px solid #9f3412;
+  border-radius: 50%;
+  color: #9f3412;
+  font-family: Georgia, serif;
+  font-size: 25px;
+  font-weight: 700;
+}
+
+.lr-company {
+  padding-top: 2px;
+  text-align: center;
+  font-size: 21px;
+}
+
+.lr-title {
+  color: #9f3412;
+  font-family: Georgia, serif;
+  font-size: 45px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.lr-number-block {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 36px 18px 0 8px;
+  font-size: 20px;
+}
+
+.lr-number-block strong {
+  color: #9f3412;
+  font-size: 24px;
+}
+
+.lr-main-top {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  min-height: 220px;
+  border-bottom: 2px solid #111827;
+}
+
+.lr-party-block {
+  padding: 12px 8px 0;
+  border-right: 2px solid #111827;
+}
+
+.lr-route-block {
+  padding: 8px 8px 0;
+}
+
+.lr-field {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  min-height: 34px;
+  align-items: end;
+  gap: 8px;
+  border-bottom: 2px solid #111827;
+}
+
+.lr-field:last-child {
+  border-bottom: 0;
+}
+
+.lr-label {
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+
+.lr-value {
+  min-width: 0;
+  padding: 0 6px 4px 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-weight: 600;
+}
+
+.lr-box {
+  min-height: 36px;
+  border: 2px solid #111827;
+}
+
+.lr-box + .lr-box {
+  margin-top: 6px;
+}
+
+.lr-box-label {
+  padding: 4px 5px 0;
+  font-weight: 700;
+}
+
+.lr-box-value {
+  padding: 1px 5px 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-weight: 600;
+}
+
+.lr-grid {
+  display: grid;
+  grid-template-columns: 50.5% 19.5% 30%;
+  min-height: 330px;
+  border-bottom: 2px solid #111827;
+}
+
+.lr-left-grid,
+.lr-mid-grid {
+  border-right: 2px solid #111827;
+}
+
+.lr-row {
+  display: grid;
+}
+
+.lr-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.lr-row .lr-box {
+  margin: 0;
+  border-width: 0 2px 2px 0;
+}
+
+.lr-row .lr-box:last-child {
+  border-right: 0;
+}
+
+.lr-left-grid > .lr-field {
+  min-height: 31px;
+  padding-left: 0;
+}
+
+.lr-left-grid .lr-field {
+  grid-template-columns: 142px 1fr;
+}
+
+.lr-mid-grid .lr-box {
+  margin: 0;
+  border-width: 0 0 2px;
+  min-height: 44px;
+  text-align: center;
+}
+
+.lr-mid-grid .lr-tall {
+  min-height: 70px;
+}
+
+.lr-weight {
+  border-bottom: 2px solid #111827;
+}
+
+.lr-section-title {
+  min-height: 28px;
+  padding-top: 6px;
+  border-bottom: 2px solid #111827;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.lr-delivery {
+  min-height: 82px;
+  text-align: left !important;
+}
+
+.lr-freight {
+  display: grid;
+  grid-template-rows: 36px repeat(11, 1fr);
+}
+
+.lr-charge-row {
+  display: grid;
+  grid-template-columns: 1fr 94px;
+  min-height: 26px;
+  border-bottom: 2px solid #111827;
+}
+
+.lr-charge-row span {
+  padding: 5px 7px;
+  border-right: 2px solid #111827;
+  overflow-wrap: anywhere;
+}
+
+.lr-charge-row span:last-child {
+  border-right: 0;
+  text-align: right;
+  font-weight: 600;
+}
+
+.lr-charge-row:last-child {
+  border-bottom: 0;
+}
+
+.lr-footer-grid {
+  display: grid;
+  grid-template-columns: 50.5% 33.5% 16%;
+  min-height: 122px;
+}
+
+.lr-notes,
+.lr-ack,
+.lr-clerk {
+  padding: 9px 8px;
+  border-right: 2px solid #111827;
+  overflow-wrap: anywhere;
+}
+
+.lr-notes,
+.lr-ack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lr-notes span {
+  font-size: 12px;
+}
+
+.lr-ack span {
+  font-size: 20px;
+}
+
+.lr-clerk {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  border-right: 0;
+  text-align: center;
+  font-size: 14px;
+}
+
+@media screen and (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .lr-sheet {
+    margin: 0;
+  }
+
+  #lr-print {
+    flex-shrink: 0;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .lr-sheet {
+    width: 1040px;
+    height: 735px;
+    font-size: 13px;
+  }
+
+  .lr-title {
+    font-size: 38px;
+  }
+
+  .lr-company {
+    font-size: 18px;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background: white;
+  }
+
+  header,
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .lr-sheet {
+    width: 277mm;
+    height: 190mm;
+    margin: 0;
+    page-break-before: avoid;
+    page-break-after: avoid;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    font-size: 9.2px;
+  }
+
+  .lr-title {
+    font-size: 26px;
+  }
+
+  .lr-company {
+    font-size: 12px;
+  }
+
+  .lr-header {
+    min-height: 28mm;
+    grid-template-columns: 24mm 1fr 52mm;
+  }
+
+  .lr-main-top {
+    min-height: 52mm;
+    grid-template-columns: 1fr 52mm;
+  }
+
+  .lr-number-block {
+    gap: 6mm;
+    padding-top: 9mm;
+    font-size: 11px;
+  }
+
+  .lr-number-block strong {
+    font-size: 12px;
+  }
+
+  .lr-logo {
+    width: 17mm;
+    height: 17mm;
+    margin-top: 4mm;
+    font-size: 12px;
+  }
+
+  .lr-grid {
+    min-height: 78mm;
+  }
+
+  .lr-footer-grid {
+    min-height: 32mm;
+  }
+
+  .lr-field {
+    min-height: 8mm;
+  }
+
+  .lr-box {
+    min-height: 8mm;
+  }
+}
