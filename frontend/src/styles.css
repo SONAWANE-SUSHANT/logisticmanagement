@@ -131,8 +131,9 @@ select:focus {
 .lr-value {
   min-width: 0;
   padding: 0 6px 4px 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
   font-weight: 600;
 }
 
@@ -152,8 +153,9 @@ select:focus {
 
 .lr-box-value {
   padding: 1px 5px 4px;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
   font-weight: 600;
 }
 
@@ -229,17 +231,10 @@ select:focus {
   grid-template-rows: 36px repeat(11, 1fr);
 }
 
-.lr-charge-row {
-  display: grid;
-  grid-template-columns: 1fr 94px;
-  min-height: 26px;
-  border-bottom: 2px solid #111827;
-}
-
 .lr-charge-row span {
   padding: 5px 7px;
   border-right: 2px solid #111827;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .lr-charge-row span:last-child {
@@ -328,89 +323,75 @@ select:focus {
 }
 
 @media print {
+
   @page {
     size: A4 landscape;
-    margin: 10mm;
+    margin: 5mm;
   }
 
+  html,
   body {
-    background: white;
+    margin: 0;
+    padding: 0;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   header,
   aside,
+  nav,
   .print\:hidden {
     display: none !important;
   }
 
   main {
+    margin: 0 !important;
     padding: 0 !important;
   }
 
-  * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  body * {
+    visibility: hidden;
   }
 
+  #lr-print,
+  #lr-print * {
+    visibility: visible;
+  }
+
+  /* Wrapper only handles positioning on the page — it must not also
+     carry sizing/transform rules, or it fights with .lr-sheet below. */
+  #lr-print {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  /* .lr-sheet keeps its native screen dimensions and just centers +
+     zooms down to fit the printable area. zoom (not transform) is used
+     because it actually shrinks the element's real layout box, so the
+     browser paginates correctly instead of clipping the corner. */
   .lr-sheet {
-    width: 277mm;
-    height: 190mm;
-    margin: 0;
-    page-break-before: avoid;
-    page-break-after: avoid;
+    width: 1122px;
+    height: 793px;
+    margin: 0 auto;
+    border: 2px solid #111827;
+    background: white;
+    zoom: 0.95;
     page-break-inside: avoid;
     break-inside: avoid;
-    font-size: 9.2px;
   }
 
-  .lr-title {
-    font-size: 26px;
+  .lr-field,
+  .lr-box,
+  .lr-charge-row {
+    break-inside: avoid;
   }
 
-  .lr-company {
-    font-size: 12px;
-  }
-
-  .lr-header {
-    min-height: 28mm;
-    grid-template-columns: 24mm 1fr 52mm;
-  }
-
-  .lr-main-top {
-    min-height: 52mm;
-    grid-template-columns: 1fr 52mm;
-  }
-
-  .lr-number-block {
-    gap: 6mm;
-    padding-top: 9mm;
-    font-size: 11px;
-  }
-
-  .lr-number-block strong {
-    font-size: 12px;
-  }
-
-  .lr-logo {
-    width: 17mm;
-    height: 17mm;
-    margin-top: 4mm;
-    font-size: 12px;
-  }
-
-  .lr-grid {
-    min-height: 78mm;
-  }
-
-  .lr-footer-grid {
-    min-height: 32mm;
-  }
-
-  .lr-field {
-    min-height: 8mm;
-  }
-
-  .lr-box {
-    min-height: 8mm;
+  table,
+  tr,
+  td {
+    page-break-inside: avoid;
   }
 }

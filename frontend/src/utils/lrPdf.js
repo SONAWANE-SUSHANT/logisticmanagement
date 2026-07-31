@@ -115,7 +115,6 @@ export const downloadLRPdf = (lr) => {
   const contentW = PAGE_WIDTH - MARGIN * 2;
   const rightX = 665;
   const rightW = PAGE_WIDTH - MARGIN - rightX;
-  const leftW = rightX - left;
 
   rect(left, top, contentW, 552);
   fillText('TANUSHREE LOGISTICS', 278, 38, 25, 'F2', RED);
@@ -131,32 +130,28 @@ export const downloadLRPdf = (lr) => {
   const consigner = lr.consignerId || {};
   const consignee = lr.consigneeId || {};
   cellText(`Consignor : M/s ${consigner.companyName || ''}`, left + 8, 105, 565, 17, { size: 9, font: 'F2', top: 12 });
-  line(left + 126, 116, rightX - 28, 116);
   cellText(`Add. ${address(consigner)}`, left + 8, 126, 565, 17, { size: 9, font: 'F2', top: 10 });
-  line(left + 64, 136, rightX - 28, 136);
   cellText(`GSTIN : ${consigner.gstNumber || ''}`, left + 8, 145, 565, 17, { size: 9, font: 'F2', top: 10 });
-  line(left + 72, 154, 430, 154);
   cellText(`Consignee : M/s ${consignee.companyName || ''}`, left + 8, 174, 565, 17, { size: 9, font: 'F2', top: 10 });
-  line(left + 130, 184, rightX - 28, 184);
   cellText(`Add. ${address(consignee)}`, left + 8, 195, 565, 17, { size: 9, font: 'F2', top: 10 });
-  line(left + 64, 205, rightX - 28, 205);
   cellText(`GSTIN : ${consignee.gstNumber || ''}`, left + 8, 218, 565, 17, { size: 9, font: 'F2', top: 10 });
-  line(left + 72, 228, 430, 228);
   line(left, 238, PAGE_WIDTH - MARGIN, 238);
 
-  rect(rightX, 108, rightW, 35);
-  cellText(`Booking\nMode`, rightX + 4, 111, 58, 28, { size: 8.2, font: 'F2', top: 10 });
-  cellText(lr.bookingMode || '', rightX + 68, 114, 95, 25, { size: 8.2, top: 10 });
-  rect(rightX, 148, rightW, 28);
-  cellText(`Mode of Delivery : ${lr.modeOfDelivery || ''}`, rightX + 4, 151, rightW - 8, 22, { size: 8.2, font: 'F2', top: 10 });
-  cellText('FROM :', rightX + 4, 184, 60, 16, { size: 8.2, font: 'F2', top: 9 });
-  rect(rightX, 199, rightW, 33);
-  cellText(lr.tripId?.from || '', rightX + 5, 207, rightW - 10, 18, { size: 8.2 });
-  cellText('TO :', rightX + 4, 237, 60, 16, { size: 8.2, font: 'F2', top: 9 });
-  rect(rightX, 252, rightW, 33);
-  cellText(lr.tripId?.to || '', rightX + 5, 260, rightW - 10, 18, { size: 8.2 });
+  const rightBoxH = 29.5;
+  const rightGap = 4;
+  let ry = 108;
+  const rightBox = (label, value) => {
+    rect(rightX, ry, rightW, rightBoxH);
+    cellText(label, rightX + 4, ry, rightW - 8, 13, { size: 7.6, font: 'F2', top: 9 });
+    cellText(value || '', rightX + 4, ry + 12, rightW - 8, rightBoxH - 12, { size: 8.4, top: 7 });
+    ry += rightBoxH + rightGap;
+  };
+  rightBox('Booking Mode', lr.bookingMode);
+  rightBox('Mode of Delivery :', lr.modeOfDelivery);
+  rightBox('FROM :', lr.tripId?.from);
+  rightBox('TO :', lr.tripId?.to);
 
-  labelValue('Vehicle No.:', lr.tripId?.vehicleNumber || '', left, 238, leftW, 29, 90);
+  labelValue('Vehicle No.:', lr.tripId?.vehicleNumber || '', left, 238, contentW, 29, 90);
 
   const midX = 455;
   const freightX = 600;
@@ -168,11 +163,8 @@ export const downloadLRPdf = (lr) => {
   fillText('Dimensions', midX + 39, rowY + 12, 9, 'F2');
   fillText('(lxbxh in inches)', midX + 30, rowY + 23, 8, 'F2');
   cellText(lr.dimensions || '', midX + 4, rowY + 25, 137, 20, { size: 7 });
-  rect(freightX, rowY, 100, rowH);
-  fillText('Rate', freightX + 38, rowY + 16, 9, 'F2');
-  cellText(fmtMoney(lr.rate), freightX + 4, rowY + 8, 90, 15, { size: 7 });
-  rect(700, rowY, 113, rowH);
-  fillText('FREIGHT DETAILS', 706, rowY + 16, 9, 'F2');
+  rect(freightX, rowY, 213, rowH);
+  fillText('FREIGHT DETAILS', freightX + 60, rowY + 16, 9, 'F2');
 
   const details = [
     ['In Words :', safe(lr.remarks)],
