@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://logisticmanagement-1.onrender.com/api/$1"
+    }
+  ]
+}
