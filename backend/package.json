@@ -4,14 +4,16 @@
   "description": "Logistics Consignment Management System backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "seed": "node seeder.js"
-  },
+  "start": "node server.js",
+  "dev": "nodemon server.js",
+  "seed": "node seeder.js",
+  "seed:data": "node seed/index.js"
+},
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.5.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

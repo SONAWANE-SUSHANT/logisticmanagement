@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FiHome, FiUsers, FiTruck, FiBox, FiBarChart2, FiSettings, FiLogOut, FiSearch, FiMenu, FiX } from 'react-icons/fi';
+import { FiHome, FiUsers, FiTruck, FiBox, FiBarChart2, FiSettings, FiLogOut, FiSearch, FiMenu, FiX, FiFileText } from 'react-icons/fi';
 import { api } from '../services/api';
 
 const links = [
@@ -10,6 +10,7 @@ const links = [
   { label: 'Customers', path: '/customers', icon: FiUsers },
   { label: 'Trips', path: '/trips', icon: FiTruck },
   { label: 'Consignments', path: '/consignments', icon: FiBox },
+  { label: 'Freight Bills', path: '/freight-bills', icon: FiFileText },
   { label: 'Reports', path: '/reports', icon: FiBarChart2 },
   { label: 'Settings', path: '/settings', icon: FiSettings },
 ];
