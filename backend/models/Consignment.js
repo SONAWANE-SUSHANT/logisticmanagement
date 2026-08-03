@@ -43,6 +43,9 @@ const consignmentSchema = new mongoose.Schema({
   totalAmount: { type: Number, default: 0 },
   remarks: { type: String },
   status: { type: String, enum: ['Pending', 'In Transit', 'Delivered'], default: 'Pending' },
+  billStatus: { type: String, enum: ['Not Billed', 'Not Generated', 'Bill Generated'], default: 'Not Billed' },
+  paymentStatus: { type: String, enum: ['-', 'Pending', 'Paid'], default: '-' },
+  freightBillId: { type: mongoose.Schema.Types.ObjectId, ref: 'FreightBill' },
 }, {
   timestamps: true,
 });

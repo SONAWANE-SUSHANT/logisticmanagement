@@ -444,7 +444,7 @@ const LastPageSummary = ({ bill }) => {
   const lines = bill.lineItems || [];
   const totalFreight = lines.reduce((sum, item) => sum + Number(item.freight || 0), 0);
   const totalWeight = lines.reduce((sum, item) => sum + Number(item.weight || 0), 0);
-  const averageRate = totalWeight ? totalFreight / totalWeight : 0;
+  const averageRate = Number(bill.ratePerKg || 0) || (totalWeight ? totalFreight / totalWeight : 0);
 
   return (
     <View wrap={false}>

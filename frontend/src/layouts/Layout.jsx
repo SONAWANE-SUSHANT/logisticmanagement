@@ -15,6 +15,9 @@ const links = [
   { label: 'Settings', path: '/settings', icon: FiSettings },
 ];
 
+const displayBillStatus = (value) => (value === 'Bill Generated' ? 'Bill Generated' : 'Not Billed');
+const displayPaymentStatus = (item) => (displayBillStatus(item.billStatus) === 'Bill Generated' ? item.paymentStatus || 'Pending' : '-');
+
 const Layout = () => {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
@@ -105,7 +108,12 @@ const Layout = () => {
                             navigate(key === 'trips' ? `/trips/${item._id}` : key === 'consignments' ? `/consignments/${item._id}` : '/customers');
                           }}
                         >
-                          {item.companyName || item.tripNumber || item.lrNumber} <span className="text-slate-400">{item.vehicleNumber || item.phone || item.tripId?.tripNumber}</span>
+                          <span>{item.companyName || item.tripNumber || item.lrNumber} <span className="text-slate-400">{item.vehicleNumber || item.phone || item.tripId?.tripNumber}</span></span>
+                          {key === 'consignments' && (
+                            <span className="mt-1 block text-xs text-slate-500">
+                              Bill Status: {displayBillStatus(item.billStatus)} | Payment Status: {displayPaymentStatus(item)}
+                            </span>
+                          )}
                         </button>
                       ))}
                       {!searchResults[key]?.length && <p className="px-2 py-1 text-xs text-slate-400">No matches</p>}

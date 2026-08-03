@@ -69,7 +69,12 @@ const buildCustomerSnapshot = (customer) => ({
   email: customer.email,
 });
 
-const buildBillPayload = async ({ customerId, fromDate, toDate, cgstRate = 9, sgstRate = 9, igstRate = 0, mode = 'Road' }) => {
+const buildConsignmentQuery = (customerId, start, end) => ({
+  bookingDate: { $gte: start, $lte: end },
+  $or: [{ consignerId: customerId }, { consigneeId: customerId }],
+});
+
+const fetchBillConsignments = async ({ customerId, fromDate, toDate, consignmentIds, onlyUnbilled = false }) => {
   const customer = await Customer.findById(customerId);
   if (!customer) {
     const error = new Error('Customer not found');
@@ -78,18 +83,58 @@ const buildBillPayload = async ({ customerId, fromDate, toDate, cgstRate = 9, sg
   }
 
   const { start, end } = parseDateRange(fromDate, toDate);
-  const consignments = await Consignment.find({
-    bookingDate: { $gte: start, $lte: end },
-    $or: [{ consignerId: customer._id }, { consigneeId: customer._id }],
-  })
+  const query = buildConsignmentQuery(customer._id, start, end);
+  if (onlyUnbilled) {
+    query.billStatus = { $ne: 'Bill Generated' };
+  }
+
+  if (consignmentIds !== undefined) {
+    const ids = Array.isArray(consignmentIds) ? consignmentIds.filter(Boolean) : [consignmentIds].filter(Boolean);
+    query._id = { $in: ids };
+  }
+
+  const consignments = await Consignment.find(query)
     .populate('tripId', 'from to')
+    .populate('consignerId', 'companyName')
+    .populate('consigneeId', 'companyName')
     .sort({ bookingDate: 1, lrNumber: 1 });
 
+  return { customer, start, end, consignments };
+};
+
+const buildBillPayload = async ({
+  customerId,
+  fromDate,
+  toDate,
+  consignmentIds = [],
+  ratePerKg = 0,
+  cgstRate = 9,
+  sgstRate = 9,
+  igstRate = 0,
+  mode = 'Road',
+}) => {
+  const rate = Number(ratePerKg || 0);
+  if (Number.isNaN(rate) || rate < 0) {
+    const error = new Error('Rate Per Kg must be a valid amount');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { customer, start, end, consignments } = await fetchBillConsignments({ customerId, fromDate, toDate, consignmentIds, onlyUnbilled: true });
+  const requestedIds = Array.isArray(consignmentIds) ? consignmentIds.filter(Boolean) : [consignmentIds].filter(Boolean);
+  if (requestedIds.length && consignments.length !== requestedIds.length) {
+    const error = new Error('One or more selected consignments do not match this customer and date range');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const lineItems = consignments.map((item, index) => {
+    const weight = Number(item.chargeableWeight || item.actualWeight || 0);
+    const calculatedFreight = roundMoney(weight * rate);
     const lrCharges = Number(item.stCharges || 0);
     const otherCharges = Number(item.hamali || 0) + Number(item.otherCharges || 0) + Number(item.insurance || 0);
     const amount = roundMoney(
-      Number(item.freight || 0) +
+      calculatedFreight +
       Number(item.collectionCharges || 0) +
       Number(item.doorDeliveryCharges || 0) +
       lrCharges +
@@ -104,8 +149,8 @@ const buildBillPayload = async ({ customerId, fromDate, toDate, cgstRate = 9, sg
       to: item.tripId?.to,
       invoiceNumber: item.invoiceNumber,
       invoiceDate: item.invoiceDate,
-      weight: Number(item.chargeableWeight || item.actualWeight || 0),
-      freight: Number(item.freight || 0),
+      weight,
+      freight: calculatedFreight,
       collectionCharges: Number(item.collectionCharges || 0),
       doorDeliveryCharges: Number(item.doorDeliveryCharges || 0),
       lrCharges,
@@ -126,6 +171,7 @@ const buildBillPayload = async ({ customerId, fromDate, toDate, cgstRate = 9, sg
     fromDate: start,
     toDate: end,
     mode,
+    ratePerKg: rate,
     lineItems,
     taxableAmount,
     cgstRate: Number(cgstRate || 0),
@@ -139,8 +185,34 @@ const buildBillPayload = async ({ customerId, fromDate, toDate, cgstRate = 9, sg
   };
 };
 
+const getBillConsignments = async (req, res) => {
+  const { consignments } = await fetchBillConsignments(req.query);
+  res.json({
+    consignments: consignments.map((item) => ({
+      _id: item._id,
+      lrNumber: item.lrNumber,
+      bookingDate: item.bookingDate,
+      consigner: item.consignerId?.companyName,
+      consignee: item.consigneeId?.companyName,
+      from: item.tripId?.from,
+      to: item.tripId?.to,
+      invoiceNumber: item.invoiceNumber,
+      invoiceDate: item.invoiceDate,
+      chargeableWeight: Number(item.chargeableWeight || item.actualWeight || 0),
+      storedFreight: Number(item.freight || 0),
+      collectionCharges: Number(item.collectionCharges || 0),
+      doorDeliveryCharges: Number(item.doorDeliveryCharges || 0),
+      lrCharges: Number(item.stCharges || 0),
+      otherCharges: Number(item.hamali || 0) + Number(item.otherCharges || 0) + Number(item.insurance || 0),
+      billStatus: item.billStatus === 'Bill Generated' ? 'Bill Generated' : 'Not Billed',
+      paymentStatus: item.billStatus === 'Bill Generated' ? item.paymentStatus || 'Pending' : '-',
+      canSelectForBill: item.billStatus !== 'Bill Generated',
+    })),
+  });
+};
+
 const previewFreightBill = async (req, res) => {
-  const payload = await buildBillPayload(req.query);
+  const payload = await buildBillPayload(req.method === 'POST' ? req.body : req.query);
   res.json(payload);
 };
 
@@ -158,6 +230,11 @@ const createFreightBill = async (req, res) => {
     notes: req.body.notes,
     createdBy: req.user?._id,
   });
+
+  await Consignment.updateMany(
+    { _id: { $in: payload.lineItems.map((item) => item.consignmentId) } },
+    { billStatus: 'Bill Generated', paymentStatus: 'Pending', freightBillId: bill._id }
+  );
 
   res.status(201).json(bill);
 };
@@ -191,6 +268,24 @@ const getFreightBillById = async (req, res) => {
   res.json(bill);
 };
 
+const markFreightBillPaid = async (req, res) => {
+  const bill = await FreightBill.findById(req.params.id);
+  if (!bill) {
+    res.status(404);
+    throw new Error('Freight bill not found');
+  }
+
+  bill.status = 'Paid';
+  await bill.save();
+
+  await Consignment.updateMany(
+    { _id: { $in: bill.lineItems.map((item) => item.consignmentId) } },
+    { paymentStatus: 'Paid' }
+  );
+
+  res.json(bill);
+};
+
 const deleteFreightBill = async (req, res) => {
   const bill = await FreightBill.findById(req.params.id);
   if (!bill) {
@@ -202,9 +297,11 @@ const deleteFreightBill = async (req, res) => {
 };
 
 module.exports = {
+  getBillConsignments,
   previewFreightBill,
   createFreightBill,
   getFreightBills,
   getFreightBillById,
+  markFreightBillPaid,
   deleteFreightBill,
 };

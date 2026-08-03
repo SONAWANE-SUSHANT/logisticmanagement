@@ -35,6 +35,7 @@ const freightBillSchema = new mongoose.Schema({
   },
   fromDate: { type: Date, required: true },
   toDate: { type: Date, required: true },
+  ratePerKg: { type: Number, default: 0 },
   lineItems: [freightBillLineSchema],
   taxableAmount: { type: Number, default: 0 },
   cgstRate: { type: Number, default: 9 },
@@ -46,7 +47,7 @@ const freightBillSchema = new mongoose.Schema({
   grandTotal: { type: Number, default: 0 },
   amountInWords: { type: String },
   notes: { type: String },
-  status: { type: String, enum: ['Generated', 'Cancelled'], default: 'Generated' },
+  status: { type: String, enum: ['Generated', 'Paid', 'Cancelled'], default: 'Generated' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, {
   timestamps: true,

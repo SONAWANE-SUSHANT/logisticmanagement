@@ -17,6 +17,8 @@ import { asDateInput, formatCurrency, formatDate } from '../utils/formatters';
 
 const today = new Date().toISOString().slice(0, 10);
 const nowTime = new Date().toTimeString().slice(0, 5);
+const displayBillStatus = (value) => (value === 'Bill Generated' ? 'Bill Generated' : 'Not Billed');
+const displayPaymentStatus = (value, billStatus) => (displayBillStatus(billStatus) === 'Bill Generated' ? value || 'Pending' : '-');
 
 const blankConsignment = {
   bookingDate: today,
@@ -62,7 +64,7 @@ const blankConsignment = {
   remarks: '',
 };
 
-const ConsignmentForm = ({ customers, trips, initial = blankConsignment, onSubmit, onCancel, onNewTrip }) => {
+export const ConsignmentForm = ({ customers, trips, initial = blankConsignment, onSubmit, onCancel, onNewTrip }) => {
   const normalizedInitial = {
     ...initial,
     bookingDate: asDateInput(initial.bookingDate),
@@ -72,125 +74,145 @@ const ConsignmentForm = ({ customers, trips, initial = blankConsignment, onSubmi
     deliveryDate: asDateInput(initial.deliveryDate),
   };
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({ defaultValues: normalizedInitial });
-  const charges = watch(['freight', 'collectionCharges', 'doorDeliveryCharges', 'hamali', 'stCharges', 'otherCharges', 'insurance', 'sgst', 'cgst', 'igst']);
+  const charges = watch(['collectionCharges', 'doorDeliveryCharges', 'hamali', 'stCharges', 'otherCharges']);
   const computedTotal = useMemo(() => charges.reduce((sum, value) => sum + Number(value || 0), 0), [charges]);
 
   const submit = (values) => {
     onSubmit({
       ...values,
-      gst: Number(values.sgst || 0) + Number(values.cgst || 0) + Number(values.igst || 0),
       subTotal:
-        Number(values.freight || 0) +
         Number(values.collectionCharges || 0) +
         Number(values.doorDeliveryCharges || 0) +
         Number(values.hamali || 0) +
         Number(values.stCharges || 0) +
-        Number(values.otherCharges || 0) +
-        Number(values.insurance || 0),
-      totalAmount: Number(values.totalAmount || computedTotal),
+        Number(values.otherCharges || 0),
     });
   };
 
+  const renderInput = (name, label, type = 'text') => (
+    <FormField key={name} label={label}>
+      <input
+        type={type}
+        className={inputClass}
+        {...register(name)}
+        onBlur={() => {
+          if (['collectionCharges', 'doorDeliveryCharges', 'hamali', 'stCharges', 'otherCharges'].includes(name)) {
+            setValue('subTotal',
+              Number(watch('collectionCharges') || 0) +
+              Number(watch('doorDeliveryCharges') || 0) +
+              Number(watch('hamali') || 0) +
+              Number(watch('stCharges') || 0) +
+              Number(watch('otherCharges') || 0)
+            );
+          }
+        }}
+      />
+    </FormField>
+  );
+
+  const sectionHeader = (title, extra = null) => (
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
+      {extra}
+    </div>
+  );
+
   return (
-    <form onSubmit={handleSubmit(submit)} className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
-        <FormField label="Consigner" error={errors.consignerId}>
-          <select className={inputClass} {...register('consignerId', { required: true })}>
-            <option value="">Select consigner</option>
-            {customers.map((customer) => <option key={customer._id} value={customer._id}>{customer.companyName}</option>)}
-          </select>
-        </FormField>
-        <FormField label="Consignee" error={errors.consigneeId}>
-          <select className={inputClass} {...register('consigneeId', { required: true })}>
-            <option value="">Select consignee</option>
-            {customers.map((customer) => <option key={customer._id} value={customer._id}>{customer.companyName}</option>)}
-          </select>
-        </FormField>
-        <FormField label="Booking Date" error={errors.bookingDate}><input type="date" className={inputClass} {...register('bookingDate', { required: true })} /></FormField>
-        <FormField label="Booking Time" error={errors.bookingTime}><input type="time" className={inputClass} {...register('bookingTime', { required: true })} /></FormField>
-        <FormField label="Booking Mode"><select className={inputClass} {...register('bookingMode')}><option>Paid</option><option>To Pay</option><option>Credit</option></select></FormField>
-        <FormField label="Mode of Delivery"><select className={inputClass} {...register('modeOfDelivery')}><option>Door Delivery</option><option>Godown Delivery</option><option>Pickup</option></select></FormField>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-[1fr,auto] md:items-end">
-        <FormField label="Assign Trip" error={errors.tripId}>
-          <select className={inputClass} {...register('tripId', { required: true })}>
-            <option value="">Select active trip</option>
-            {trips.filter((trip) => trip.status !== 'Completed').map((trip) => (
-              <option key={trip._id} value={trip._id}>{trip.tripNumber} - {trip.vehicleNumber} - {trip.from} to {trip.to}</option>
-            ))}
-          </select>
-        </FormField>
-        <button type="button" onClick={onNewTrip} className="rounded-md border border-slate-200 px-4 py-2.5 font-semibold text-slate-700">Create New Trip</button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {[
-          ['invoiceNumber', 'Invoice Number', 'text'],
-          ['invoiceDate', 'Invoice Date', 'date'],
-          ['ewayBillNumber', 'E-Way Bill Number', 'text'],
-          ['ewayBillDate', 'E-Way Bill Date', 'date'],
-          ['ewayBillValidUpto', 'E-Way Valid Upto', 'date'],
-          ['deliveryDate', 'Delivery Date', 'date'],
-          ['paymentMode', 'Payment Mode', 'text'],
-          ['packageType', 'Package Type', 'text'],
-          ['packageCount', 'Packages', 'number'],
-          ['dimensions', 'Dimensions', 'text'],
-          ['rate', 'Rate', 'number'],
-          ['partNumber', 'Part Number', 'text'],
-          ['partName', 'Part Name', 'text'],
-          ['quantity', 'Quantity', 'number'],
-          ['privateMark', 'Private Mark', 'text'],
-          ['actualWeight', 'Actual Weight', 'number'],
-          ['chargeableWeight', 'Chargeable Weight', 'number'],
-          ['goodsValue', 'Goods Value', 'number'],
-          ['freight', 'Freight', 'number'],
-          ['collectionCharges', 'Collection Charges', 'number'],
-          ['doorDeliveryCharges', 'Door Delivery Charges', 'number'],
-          ['hamali', 'Hamali', 'number'],
-          ['stCharges', 'Station Charges', 'number'],
-          ['otherCharges', 'Other Charges', 'number'],
-          ['insurance', 'Insurance', 'number'],
-          ['subTotal', 'Sub Total', 'number'],
-          ['sgst', 'SGST', 'number'],
-          ['cgst', 'CGST', 'number'],
-          ['igst', 'IGST', 'number'],
-          ['totalAmount', 'Total Amount', 'number'],
-        ].map(([name, label, type]) => (
-          <FormField key={name} label={label}>
-            <input
-              type={type}
-              className={inputClass}
-              {...register(name)}
-              onBlur={() => {
-                if (['freight', 'collectionCharges', 'doorDeliveryCharges', 'hamali', 'stCharges', 'otherCharges', 'insurance', 'sgst', 'cgst', 'igst'].includes(name)) {
-                  setValue('subTotal',
-                    Number(watch('freight') || 0) +
-                    Number(watch('collectionCharges') || 0) +
-                    Number(watch('doorDeliveryCharges') || 0) +
-                    Number(watch('hamali') || 0) +
-                    Number(watch('stCharges') || 0) +
-                    Number(watch('otherCharges') || 0) +
-                    Number(watch('insurance') || 0)
-                  );
-                  setValue('totalAmount', computedTotal);
-                }
-              }}
-            />
+    <form onSubmit={handleSubmit(submit)} className="space-y-4">
+      {/* Parties, Trip & Booking — merged into one dense section */}
+      <section>
+        {sectionHeader(
+          'Parties, Trip & Booking',
+          <button type="button" onClick={onNewTrip} className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+            + New Trip
+          </button>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <FormField label="Consigner" error={errors.consignerId}>
+            <select className={inputClass} {...register('consignerId', { required: true })}>
+              <option value="">Select consigner</option>
+              {customers.map((customer) => <option key={customer._id} value={customer._id}>{customer.companyName}</option>)}
+            </select>
           </FormField>
-        ))}
-        <FormField label="Status">
-          <select className={inputClass} {...register('status')}>
-            <option>Pending</option>
-            <option>In Transit</option>
-            <option>Delivered</option>
-          </select>
-        </FormField>
+          <FormField label="Consignee" error={errors.consigneeId}>
+            <select className={inputClass} {...register('consigneeId', { required: true })}>
+              <option value="">Select consignee</option>
+              {customers.map((customer) => <option key={customer._id} value={customer._id}>{customer.companyName}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Assign Trip" error={errors.tripId}>
+            <select className={inputClass} {...register('tripId', { required: true })}>
+              <option value="">Select active trip</option>
+              {trips.filter((trip) => trip.status !== 'Completed').map((trip) => (
+                <option key={trip._id} value={trip._id}>{trip.tripNumber} - {trip.vehicleNumber} - {trip.from} to {trip.to}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Booking Date" error={errors.bookingDate}><input type="date" className={inputClass} {...register('bookingDate', { required: true })} /></FormField>
+          <FormField label="Booking Time" error={errors.bookingTime}><input type="time" className={inputClass} {...register('bookingTime', { required: true })} /></FormField>
+          <FormField label="Booking Mode"><select className={inputClass} {...register('bookingMode')}><option>Paid</option><option>To Pay</option><option>Credit</option></select></FormField>
+          <FormField label="Mode of Delivery"><select className={inputClass} {...register('modeOfDelivery')}><option>Door Delivery</option><option>Godown Delivery</option><option>Pickup</option></select></FormField>
+          {renderInput('deliveryDate', 'Delivery Date', 'date')}
+          {renderInput('paymentMode', 'Payment Mode')}
+          <FormField label="Status">
+            <select className={inputClass} {...register('status')}>
+              <option>Pending</option>
+              <option>In Transit</option>
+              <option>Delivered</option>
+            </select>
+          </FormField>
+        </div>
+      </section>
+
+      {/* Invoice/E-Way + Goods side by side, denser inner grids */}
+      <div className="grid gap-5 border-t border-slate-200 pt-3 xl:grid-cols-2">
+        <section>
+          {sectionHeader('Invoice & E-Way')}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {renderInput('invoiceNumber', 'Invoice Number')}
+            {renderInput('invoiceDate', 'Invoice Date', 'date')}
+            {renderInput('ewayBillNumber', 'E-Way Bill Number')}
+            {renderInput('ewayBillDate', 'E-Way Bill Date', 'date')}
+            {renderInput('ewayBillValidUpto', 'E-Way Valid Upto', 'date')}
+            {renderInput('goodsValue', 'Goods Value', 'number')}
+          </div>
+        </section>
+
+        <section>
+          {sectionHeader('Goods')}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {renderInput('packageType', 'Package Type')}
+            {renderInput('packageCount', 'Packages', 'number')}
+            {renderInput('dimensions', 'Dimensions')}
+            {renderInput('rate', 'Rate', 'number')}
+            {renderInput('partNumber', 'Part Number')}
+            {renderInput('partName', 'Part Name')}
+            {renderInput('quantity', 'Quantity', 'number')}
+            {renderInput('actualWeight', 'Actual Weight', 'number')}
+            {renderInput('chargeableWeight', 'Chargeable Weight', 'number')}
+          </div>
+        </section>
       </div>
 
-      <FormField label="Description of Goods"><textarea rows="3" className={inputClass} {...register('description')} /></FormField>
-      <FormField label="Remarks"><textarea rows="2" className={inputClass} {...register('remarks')} /></FormField>
-      <div className="flex justify-between gap-3 border-t border-slate-200 pt-4">
+      {/* Charges — single row on desktop */}
+      <section className="border-t border-slate-200 pt-3">
+        {sectionHeader('Charges')}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {renderInput('collectionCharges', 'Collection Charges', 'number')}
+          {renderInput('doorDeliveryCharges', 'Door Delivery Charges', 'number')}
+          {renderInput('hamali', 'Hamali', 'number')}
+          {renderInput('stCharges', 'Station Charges', 'number')}
+          {renderInput('otherCharges', 'Other Charges', 'number')}
+          {renderInput('subTotal', 'Sub Total', 'number')}
+        </div>
+      </section>
+
+      <div className="grid gap-3 border-t border-slate-200 pt-3 lg:grid-cols-2">
+        <FormField label="Description of Goods"><textarea rows="2" className={inputClass} {...register('description')} /></FormField>
+        <FormField label="Remarks"><textarea rows="2" className={inputClass} {...register('remarks')} /></FormField>
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-sm text-slate-500">Calculated charges: <strong className="text-slate-900">{formatCurrency(computedTotal)}</strong></span>
         <div className="flex gap-3">
           <button type="button" onClick={onCancel} className="rounded-md border border-slate-200 px-4 py-2 text-slate-700">Cancel</button>
@@ -262,6 +284,8 @@ const ConsignmentsPage = () => {
     { key: 'trip', label: 'Trip', render: (row) => row.tripId?.tripNumber },
     { key: 'bookingDate', label: 'Booking', render: (row) => formatDate(row.bookingDate) },
     { key: 'status', label: 'Status', render: (row) => <StatusBadge value={row.status} /> },
+    { key: 'billStatus', label: 'Bill Status', render: (row) => displayBillStatus(row.billStatus) },
+    { key: 'paymentStatus', label: 'Payment Status', render: (row) => displayPaymentStatus(row.paymentStatus, row.billStatus) },
     {
       key: 'actions',
       label: 'Actions',
@@ -302,7 +326,7 @@ const ConsignmentsPage = () => {
         <Pagination page={data?.page || page} pages={data?.pages || 1} onPage={setPage} />
       </section>
       {editing && (
-        <Modal title={editing._id ? 'Edit Consignment' : 'Create Consignment LR'} onClose={() => setEditing(null)} width="max-w-5xl">
+        <Modal title={editing._id ? 'Edit Consignment' : 'Create Consignment LR'} onClose={() => setEditing(null)} width="max-w-6xl">
           <ConsignmentForm customers={customerData?.customers || []} trips={tripData?.trips || []} initial={editing} onCancel={() => setEditing(null)} onNewTrip={() => setTripModal(true)} onSubmit={(values) => saveConsignment.mutate(values)} />
         </Modal>
       )}
