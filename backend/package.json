@@ -4,11 +4,11 @@
   "description": "Logistics Consignment Management System backend",
   "main": "server.js",
   "scripts": {
-  "start": "node server.js",
-  "dev": "nodemon server.js",
-  "seed": "node seeder.js",
-  "seed:data": "node seed/index.js"
-},
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "seed": "node seeder.js",
+    "seed:data": "node seed/index.js"
+  },
   "engines": {
     "node": ">=18"
   },
@@ -21,7 +21,7 @@
     "express": "^4.18.2",
     "express-async-errors": "^3.1.1",
     "jsonwebtoken": "^9.0.1",
-    "mongoose": "^7.5.2"
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

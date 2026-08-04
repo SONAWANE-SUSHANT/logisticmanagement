@@ -223,13 +223,26 @@ const createFreightBill = async (req, res) => {
     throw new Error('No consignments found for this customer and date range');
   }
 
-  const bill = await FreightBill.create({
-    ...payload,
-    billNumber: await generateFreightBillNumber(),
-    billDate: req.body.billDate || new Date(),
-    notes: req.body.notes,
-    createdBy: req.user?._id,
-  });
+  // Retry a couple of times if two requests race and generate the same bill number —
+  // the unique constraint on bill_number will reject the second insert; just
+  // regenerate and try again rather than surfacing the raw DB error.
+  let bill;
+  let attempt = 0;
+  while (!bill) {
+    attempt += 1;
+    try {
+      bill = await FreightBill.create({
+        ...payload,
+        billNumber: await generateFreightBillNumber(),
+        billDate: req.body.billDate || new Date(),
+        notes: req.body.notes,
+        createdBy: req.user?._id,
+      });
+    } catch (error) {
+      const isDuplicateBillNumber = error.code === '23505' && /bill_number/i.test(error.constraint || error.detail || '');
+      if (!isDuplicateBillNumber || attempt >= 5) throw error;
+    }
+  }
 
   await Consignment.updateMany(
     { _id: { $in: payload.lineItems.map((item) => item.consignmentId) } },

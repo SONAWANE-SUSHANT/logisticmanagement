@@ -2,6 +2,7 @@ const Customer = require('../models/Customer');
 const Trip = require('../models/Trip');
 const Consignment = require('../models/Consignment');
 const FreightBill = require('../models/FreightBill');
+const { pool } = require('../config/db');
 
 const generateCustomerCode = async () => {
   const count = await Customer.countDocuments();
@@ -22,13 +23,15 @@ const generateFreightBillNumber = async () => {
   const now = new Date();
   const fiscalStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
   const fiscalLabel = `${String(fiscalStart).slice(-2)}-${String(fiscalStart + 1).slice(-2)}`;
-  const count = await FreightBill.countDocuments({
-    createdAt: {
-      $gte: new Date(fiscalStart, 3, 1),
-      $lt: new Date(fiscalStart + 1, 3, 1),
-    },
-  });
-  return `${fiscalLabel}/${String(count + 1).padStart(3, '0')}`;
+  // Use the highest existing sequence number for this fiscal year, not a row count —
+  // a count drifts (and collides with an already-used bill number) once any bill in
+  // the year has been deleted.
+  const result = await pool.query(
+    `SELECT MAX(CAST(split_part("bill_number", '/', 2) AS INT)) AS max_num FROM "freight_bills" WHERE "bill_number" LIKE $1`,
+    [`${fiscalLabel}/%`]
+  );
+  const nextSeq = (result.rows[0].max_num || 0) + 1;
+  return `${fiscalLabel}/${String(nextSeq).padStart(3, '0')}`;
 };
 
 module.exports = { generateCustomerCode, generateTripNumber, generateLRNumber, generateFreightBillNumber };

@@ -21,6 +21,25 @@ const money = (value = 0) =>
 const displayBillStatus = (value) => (value === 'Bill Generated' ? 'Bill Generated' : 'Not Billed');
 const displayPaymentStatus = (row) => (displayBillStatus(row.billStatus) === 'Bill Generated' ? row.paymentStatus || 'Pending' : '-');
 
+const toISODate = (date) => date.toISOString().slice(0, 10);
+
+// FIX: key was 'All' (capital) here but checked as 'all' (lowercase) in applyDatePreset below.
+// Normalized to lowercase so the "All" branch actually triggers.
+const datePresets = [
+  { key: 'last2', label: 'Last 2 Days', days: 2 },
+  { key: 'last7', label: 'Last 7 Days', days: 7 },
+  { key: 'lastMonth', label: 'Last Month', days: 30 },
+  { key: 'all', label: 'All' },
+];
+
+const consignmentStatusFilters = [
+  { key: 'all', label: 'All' },
+  { key: 'billGenerated', label: 'Bill Generated' },
+  { key: 'notBilled', label: 'Not Billed' },
+  { key: 'paid', label: 'Paid' },
+  { key: 'unpaid', label: 'Unpaid' },
+];
+
 const pdfFileName = (bill) => `Freight-Bill-${String(bill?.billNumber || 'Draft').replace(/[^\w.-]+/g, '-')}.pdf`;
 
 const PdfActions = ({ bill }) => (
@@ -33,17 +52,20 @@ const PdfActions = ({ bill }) => (
       {({ loading }) => <><FiDownload /> {loading ? 'Preparing PDF...' : 'Download PDF'}</>}
     </PDFDownloadLink>
     <BlobProvider document={<FreightBillPdf bill={bill} />}>
-      {({ url, loading }) => (
-        <a
-          href={url || undefined}
-          target="_blank"
-          rel="noreferrer"
-          className={`inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 font-semibold text-white ${loading || !url ? 'pointer-events-none opacity-60' : ''}`}
-        >
-          <FiExternalLink /> {loading ? 'Preparing...' : 'Open / Print'}
-        </a>
-      )}
-    </BlobProvider>
+  {({ url, loading }) => (
+    <a
+      href={url || undefined}
+      target="_blank"
+      rel="noreferrer"
+      className={`inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 font-semibold text-white ${
+        loading || !url ? 'pointer-events-none opacity-60' : ''
+      }`}
+    >
+      <FiExternalLink />
+      {loading ? 'Preparing...' : 'Open / Print'}
+    </a>
+  )}
+</BlobProvider>
   </div>
 );
 
@@ -83,6 +105,8 @@ const FreightBillsPage = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ customerId: '', fromDate: today, toDate: today, ratePerKg: '', cgstRate: 9, sgstRate: 9, igstRate: 0 });
+  const [datePreset, setDatePreset] = useState('custom');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedConsignmentIds, setSelectedConsignmentIds] = useState([]);
   const [editingConsignment, setEditingConsignment] = useState(null);
   const [tripModal, setTripModal] = useState(false);
@@ -93,7 +117,10 @@ const FreightBillsPage = () => {
   const { data: consignmentData, isFetching: isFetchingConsignments } = useQuery({
     queryKey: ['freight-bill-consignments', filters.customerId, filters.fromDate, filters.toDate],
     queryFn: async () => (await api.get('/freight-bills/consignments', { params: listParams({ customerId: filters.customerId, fromDate: filters.fromDate, toDate: filters.toDate }) })).data,
-    enabled: Boolean(filters.customerId && filters.fromDate && filters.toDate),
+    // FIX: previously required fromDate && toDate too, which are intentionally '' when
+    // the "All" date preset is selected — that made this query disabled and no
+    // consignments would ever load. Only customerId is actually required to fetch.
+    enabled: Boolean(filters.customerId),
   });
   const { data, isLoading } = useQuery({
     queryKey: ['freight-bills', page, search],
@@ -106,8 +133,17 @@ const FreightBillsPage = () => {
   );
 
   const billConsignments = consignmentData?.consignments || [];
-  const selectableConsignments = billConsignments.filter((item) => item.canSelectForBill !== false && displayBillStatus(item.billStatus) !== 'Bill Generated');
-  const allConsignmentsSelected = selectableConsignments.length > 0 && selectedConsignmentIds.length === selectableConsignments.length;
+  const filteredConsignments = billConsignments.filter((item) => {
+    const billStatusValue = displayBillStatus(item.billStatus);
+    const paymentStatusValue = displayPaymentStatus(item);
+    if (statusFilter === 'billGenerated') return billStatusValue === 'Bill Generated';
+    if (statusFilter === 'notBilled') return billStatusValue !== 'Bill Generated';
+    if (statusFilter === 'paid') return billStatusValue === 'Bill Generated' && paymentStatusValue === 'Paid';
+    if (statusFilter === 'unpaid') return billStatusValue === 'Bill Generated' && paymentStatusValue !== 'Paid';
+    return true;
+  });
+  const selectableConsignments = filteredConsignments.filter((item) => item.canSelectForBill !== false && displayBillStatus(item.billStatus) !== 'Bill Generated');
+  const allConsignmentsSelected = selectableConsignments.length > 0 && selectableConsignments.every((item) => selectedConsignmentIds.includes(item._id));
   const ratePerKg = Number(filters.ratePerKg || 0);
 
   useEffect(() => {
@@ -117,9 +153,38 @@ const FreightBillsPage = () => {
 
   const updateFilter = (name, value) => {
     setFilters((current) => ({ ...current, [name]: value }));
+    if (name === 'fromDate' || name === 'toDate') setDatePreset('custom');
     if (!['customerId', 'fromDate', 'toDate'].includes(name)) {
       setPreview(null);
     }
+  };
+
+  const applyDatePreset = (key) => {
+    setDatePreset(key);
+
+    if (key === 'all') {
+      // Backend requires real fromDate/toDate values (empty strings are rejected
+      // with a 400), so "All" uses a wide valid range instead of blanking them out.
+      setFilters((current) => ({
+        ...current,
+        fromDate: '2000-01-01',
+        toDate: today,
+      }));
+      return;
+    }
+
+    const preset = datePresets.find((item) => item.key === key);
+    if (!preset) return;
+
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (preset.days - 1));
+
+    setFilters((current) => ({
+      ...current,
+      fromDate: toISODate(start),
+      toDate: toISODate(end),
+    }));
   };
 
   const toggleConsignment = (consignmentId) => {
@@ -133,7 +198,15 @@ const FreightBillsPage = () => {
 
   const toggleAllConsignments = () => {
     setPreview(null);
-    setSelectedConsignmentIds(allConsignmentsSelected ? [] : selectableConsignments.map((item) => item._id));
+    setSelectedConsignmentIds((current) => {
+      if (allConsignmentsSelected) {
+        const visibleIds = new Set(selectableConsignments.map((item) => item._id));
+        return current.filter((idValue) => !visibleIds.has(idValue));
+      }
+      const merged = new Set(current);
+      selectableConsignments.forEach((item) => merged.add(item._id));
+      return [...merged];
+    });
   };
 
   const billPayload = () => ({
@@ -291,22 +364,18 @@ const FreightBillsPage = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Freight Bills" description="Generate consolidated customer bills from LR records and manage saved printable copies." />
-
+      {/* Box 1: customer + rate + GST selection, with the page title tucked into the top-right corner */}
       <section className="space-y-4 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="grid gap-4 md:grid-cols-5">
-          <FormField label="Customer">
-            <select className={inputClass} value={filters.customerId} onChange={(event) => updateFilter('customerId', event.target.value)}>
-              <option value="">Select customer</option>
-              {(customerData?.customers || []).map((customer) => <option key={customer._id} value={customer._id}>{customer.companyName}</option>)}
-            </select>
-          </FormField>
-          <FormField label="From Date">
-            <input type="date" className={inputClass} value={filters.fromDate} onChange={(event) => updateFilter('fromDate', event.target.value)} />
-          </FormField>
-          <FormField label="To Date">
-            <input type="date" className={inputClass} value={filters.toDate} onChange={(event) => updateFilter('toDate', event.target.value)} />
-          </FormField>
+        <div className="grid gap-4 md:grid-cols-6">
+          <div className="md:col-span-2">
+            <FormField label="Customer">
+              <select className={inputClass} value={filters.customerId} onChange={(event) => updateFilter('customerId', event.target.value)}>
+                <option value="">Select customer</option>
+                {(customerData?.customers || []).map((customer) => <option key={customer._id} value={customer._id}>{customer.companyName}</option>)}
+              </select>
+            </FormField>
+          </div>
+
           <FormField label="Rate Per Kg">
             <input type="number" min="0" step="0.01" className={inputClass} value={filters.ratePerKg} onChange={(event) => updateFilter('ratePerKg', event.target.value)} placeholder="0.00" />
           </FormField>
@@ -317,24 +386,55 @@ const FreightBillsPage = () => {
               <input type="number" className={inputClass} value={filters.igstRate} onChange={(event) => updateFilter('igstRate', event.target.value)} title="IGST %" />
             </div>
           </FormField>
-        </div>
-        <div className="flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-4">
-          <p className="text-sm text-slate-500">
-            {selectedCustomer ? `${selectedConsignmentIds.length} of ${billConsignments.length} LR records selected for ${selectedCustomer.companyName}.` : 'Select a customer and billing period to load matching LR records.'}
-          </p>
-          <div className="flex gap-2">
-            <button onClick={() => previewBill.mutate()} disabled={!selectedConsignmentIds.length || filters.ratePerKg === '' || previewBill.isPending} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2.5 font-semibold text-slate-700 disabled:opacity-50"><FiFileText /> Preview</button>
-            <button onClick={() => createBill.mutate()} disabled={!preview?.lineItems?.length || createBill.isPending} className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2.5 font-semibold text-white disabled:opacity-50"><FiFileText /> Generate & Save</button>
+
+          <div className="text-right md:col-span-2">
+            <h1 className="text-lg font-bold text-slate-950">Freight Bills</h1>
+            <p className="text-xs text-slate-500">Generate consolidated customer bills from LR records and manage saved printable copies.</p>
           </div>
         </div>
       </section>
 
+
+      {/* Box 2: quick range + status summary (small top part) + consignment data (below) */}
       {filters.customerId && (
-        <section className="space-y-4 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-950">Select Consignments</h2>
-              <p className="text-sm text-slate-500">{isFetchingConsignments ? 'Loading matching LR records...' : `${billConsignments.length} matching LR records found`}</p>
+        <section className="space-y-3 rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-slate-700">Quick range:</span>
+            {datePresets.map((preset) => (
+              <button
+                key={preset.key}
+                type="button"
+                onClick={() => applyDatePreset(preset.key)}
+                className={`rounded-md px-3 py-1.5 text-sm font-semibold ${datePreset === preset.key ? 'bg-accent text-white' : 'border border-slate-200 text-slate-700'}`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
+            <p className="text-sm text-slate-500">
+              {selectedCustomer ? `${selectedConsignmentIds.length} of ${billConsignments.length} LR records selected for ${selectedCustomer.companyName}.` : 'Select a billing period to load matching LR records.'}
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => previewBill.mutate()} disabled={!selectedConsignmentIds.length || filters.ratePerKg === '' || previewBill.isPending} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"><FiFileText /> Preview</button>
+              <button onClick={() => createBill.mutate()} disabled={!preview?.lineItems?.length || createBill.isPending} className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><FiFileText /> Generate & Save</button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-slate-700">Status:</span>
+              {consignmentStatusFilters.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setStatusFilter(option.key)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-semibold ${statusFilter === option.key ? 'bg-primary text-white' : 'border border-slate-200 text-slate-700'}`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
             <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
               <input
@@ -344,10 +444,17 @@ const FreightBillsPage = () => {
                 disabled={!selectableConsignments.length}
                 className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
               />
-              Select All
+              Select All Visible ({isFetchingConsignments ? '...' : `${filteredConsignments.length} of ${billConsignments.length}`})
             </label>
           </div>
-          {isFetchingConsignments ? <div className="text-sm text-slate-500">Loading consignments...</div> : <DataTable columns={consignmentColumns} rows={billConsignments} emptyText="No consignments found for this customer and date range" />}
+
+          {isFetchingConsignments ? (
+            <div className="text-sm text-slate-500">Loading consignments...</div>
+          ) : (
+            <div className="max-h-[380px] overflow-y-auto rounded-md border border-slate-200">
+              <DataTable columns={consignmentColumns} rows={filteredConsignments} emptyText="No consignments match this filter" />
+            </div>
+          )}
         </section>
       )}
 
@@ -369,7 +476,13 @@ const FreightBillsPage = () => {
           <FiSearch className="absolute left-3 top-3 text-slate-400" />
           <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search bill number, customer, GST..." className={`${inputClass} pl-10`} />
         </div>
-        {isLoading ? <div className="text-sm text-slate-500">Loading freight bills...</div> : <DataTable columns={columns} rows={rows} />}
+        {isLoading ? (
+          <div className="text-sm text-slate-500">Loading freight bills...</div>
+        ) : (
+          <div className="max-h-[420px] overflow-y-auto rounded-md border border-slate-200">
+            <DataTable columns={columns} rows={rows} />
+          </div>
+        )}
         <Pagination page={data?.page || page} pages={data?.pages || 1} onPage={setPage} />
       </section>
       {editingConsignment && (

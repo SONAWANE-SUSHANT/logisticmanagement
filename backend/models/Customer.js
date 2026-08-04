@@ -1,21 +1,24 @@
-const mongoose = require('mongoose');
+const PgModel = require('./pgModel');
 
-const customerSchema = new mongoose.Schema({
-  customerCode: { type: String, required: true, unique: true },
-  companyName: { type: String, required: true },
-  contactPerson: { type: String },
-  gstNumber: { type: String },
-  panNumber: { type: String },
-  phone: { type: String, required: true },
-  email: { type: String },
-  address: { type: String },
-  city: { type: String },
-  state: { type: String },
-  pincode: { type: String },
-  country: { type: String },
-  remarks: { type: String },
-}, {
-  timestamps: true,
+module.exports = new PgModel({
+  table: 'customers',
+  fields: [
+    '_id',
+    'id',
+    'customerCode',
+    'companyName',
+    'contactPerson',
+    'gstNumber',
+    'panNumber',
+    'phone',
+    'email',
+    'address',
+    'city',
+    'state',
+    'pincode',
+    'country',
+    'remarks',
+    'createdAt',
+    'updatedAt',
+  ],
 });
-
-module.exports = mongoose.model('Customer', customerSchema);

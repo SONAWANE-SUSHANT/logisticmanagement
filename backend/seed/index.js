@@ -1,12 +1,14 @@
 require("dotenv").config();
 
-const mongoose = require("mongoose");
-
-const connectDB = require("../config/db");
+const { connectDB, pool } = require("../config/db");
 
 const createCustomers = require("./customer");
 const createTrips = require("./trips");
 const createConsignments = require("./consignment");
+const Customer = require("../models/Customer");
+const Trip = require("../models/Trip");
+const Consignment = require("../models/Consignment");
+const FreightBill = require("../models/FreightBill");
 
 const seedDatabase = async () => {
   try {
@@ -16,6 +18,11 @@ const seedDatabase = async () => {
     console.log("==================================");
     console.log("Starting Logistics Database Seeder");
     console.log("==================================");
+
+    await FreightBill.deleteMany({});
+    await Consignment.deleteMany({});
+    await Trip.deleteMany({});
+    await Customer.deleteMany({});
 
     const customers = await createCustomers();
 
@@ -28,13 +35,15 @@ const seedDatabase = async () => {
     console.log("Database Seeded Successfully");
     console.log("==================================");
 
-    mongoose.connection.close();
+    await pool.end();
 
     process.exit(0);
 
   } catch (error) {
 
     console.error(error);
+
+    await pool.end();
 
     process.exit(1);
 
